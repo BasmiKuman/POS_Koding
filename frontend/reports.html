@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - POS System</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="nav-brand">POS System</div>
+        <nav class="nav">
+            <a href="/dashboard" class="nav-item">📊 Dashboard</a>
+            <a href="/products" class="nav-item">📦 Products</a>
+            <a href="/transactions" class="nav-item">💳 Transactions</a>
+            <a href="/reports" class="nav-item active">📈 Reports</a>
+            <a href="#" class="nav-item" onclick="auth.logout()">🚪 Logout</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>Reports & Analytics</h1>
+            <div class="flex items-center gap-4">
+                <button class="btn btn-secondary" onclick="refreshReports()">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <!-- Report Filters -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">Report Filters</h3>
+            </div>
+            <div class="flex gap-4 items-end">
+                <div class="form-group mb-0">
+                    <label for="startDate" class="form-label">Start Date</label>
+                    <input type="date" id="startDate" class="form-input">
+                </div>
+                <div class="form-group mb-0">
+                    <label for="endDate" class="form-label">End Date</label>
+                    <input type="date" id="endDate" class="form-input">
+                </div>
+                <button class="btn btn-primary" onclick="loadSalesReport()">Apply Filter</button>
+                <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6">
+            <!-- Sales Report -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Sales Report</h3>
+                    <div class="flex gap-2">
+                        <button class="btn btn-secondary btn-sm" onclick="exportReport('sales', 'csv')">📄 CSV</button>
+                        <button class="btn btn-secondary btn-sm" onclick="exportReport('sales', 'xlsx')">📊 Excel</button>
+                    </div>
+                </div>
+                <div id="salesReportContainer">
+                    <div class="text-center">Loading sales report...</div>
+                </div>
+            </div>
+
+            <!-- Products Report -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Products Performance</h3>
+                    <div class="flex gap-2">
+                        <button class="btn btn-secondary btn-sm" onclick="exportReport('products', 'csv')">📄 CSV</button>
+                        <button class="btn btn-secondary btn-sm" onclick="exportReport('products', 'xlsx')">📊 Excel</button>
+                    </div>
+                </div>
+                <div id="productsReportContainer">
+                    <div class="text-center">Loading products report...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-4 mt-6">
+            <div class="stat-card">
+                <div class="stat-value" id="totalRevenue">$0.00</div>
+                <div class="stat-label">Total Revenue</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalTransactions">0</div>
+                <div class="stat-label">Total Transactions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgTransactionValue">$0.00</div>
+                <div class="stat-label">Avg Transaction</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="topSellingProduct">-</div>
+                <div class="stat-label">Top Product</div>
+            </div>
+        </div>
+
+        <!-- Detailed Analytics -->
+        <div class="card mt-6">
+            <div class="card-header">
+                <h3 class="card-title">Detailed Analytics</h3>
+                <div class="flex gap-2">
+                    <button class="btn btn-secondary btn-sm" onclick="showTab('sales')" id="salesTab">Sales Analysis</button>
+                    <button class="btn btn-secondary btn-sm" onclick="showTab('products')" id="productsTab">Product Analysis</button>
+                    <button class="btn btn-secondary btn-sm" onclick="showTab('inventory')" id="inventoryTab">Inventory Status</button>
+                </div>
+            </div>
+
+            <!-- Sales Analysis Tab -->
+            <div id="salesAnalysis" class="tab-content">
+                <h4 class="mb-3">Sales Trends</h4>
+                <div id="salesTrendsContainer">
+                    <div class="text-center">Loading sales trends...</div>
+                </div>
+            </div>
+
+            <!-- Product Analysis Tab -->
+            <div id="productAnalysis" class="tab-content" style="display: none;">
+                <h4 class="mb-3">Product Performance Ranking</h4>
+                <div id="productRankingContainer">
+                    <div class="text-center">Loading product ranking...</div>
+                </div>
+            </div>
+
+            <!-- Inventory Status Tab -->
+            <div id="inventoryAnalysis" class="tab-content" style="display: none;">
+                <h4 class="mb-3">Inventory Status</h4>
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div class="stat-card">
+                        <div class="stat-value text-success" id="inStockCount">0</div>
+                        <div class="stat-label">In Stock</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value text-warning" id="lowStockCount">0</div>
+                        <div class="stat-label">Low Stock</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value text-error" id="outOfStockCount">0</div>
+                        <div class="stat-label">Out of Stock</div>
+                    </div>
+                </div>
+                <div id="inventoryDetailsContainer">
+                    <div class="text-center">Loading inventory details...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .tab-content {
+            margin-top: 1rem;
+        }
+
+        .trend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .trend-item:last-child {
+            border-bottom: none;
+        }
+
+        .trend-positive {
+            color: var(--color-success);
+        }
+
+        .trend-negative {
+            color: var(--color-error);
+        }
+
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--slate-1);
+            border-radius: 8px;
+        }
+
+        .ranking-badge {
+            background: var(--color-accent);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .inventory-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .stock-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .stock-status.in-stock {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .stock-status.low-stock {
+            background: #fffbeb;
+            color: #92400e;
+        }
+
+        .stock-status.out-of-stock {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+    </style>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script>
+        // Check authentication
+        if (!auth.requireAuth()) {
+            // Will redirect to login if not authenticated
+        }
+
+        let salesData = [];
+        let productsData = [];
+        let currentTab = 'sales';
+
+        // Initialize page
+        function initializePage() {
+            // Set default date range (last 30 days)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+
+            // Load initial reports
+            loadAllReports();
+        }
+
+        async function loadAllReports() {
+            try {
+                await Promise.all([
+                    loadSalesReport(),
+                    loadProductsReport()
+                ]);
+                updateSummaryCards();
+            } catch (error) {
+                console.error('Failed to load reports:', error);
+                showAlert('Failed to load reports', 'error');
+            }
+        }
+
+        async function loadSalesReport() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const container = document.getElementById('salesReportContainer');
+
+            container.innerHTML = '<div class="text-center">Loading...</div>';
+
+            try {
+                salesData = await api.getSalesReport(startDate, endDate);
+                renderSalesReport();
+                renderSalesTrends();
+            } catch (error) {
+                console.error('Failed to load sales report:', error);
+                container.innerHTML = '<div class="text-center text-error">Failed to load sales report</div>';
+            }
+        }
+
+        async function loadProductsReport() {
+            const container = document.getElementById('productsReportContainer');
+            container.innerHTML = '<div class="text-center">Loading...</div>';
+
+            try {
+                productsData = await api.getProductsReport();
+                renderProductsReport();
+                renderProductRanking();
+                renderInventoryAnalysis();
+            } catch (error) {
+                console.error('Failed to load products report:', error);
+                container.innerHTML = '<div class="text-center text-error">Failed to load products report</div>';
+            }
+        }
+
+        function renderSalesReport() {
+            const container = document.getElementById('salesReportContainer');
+
+            if (!salesData || salesData.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">No sales data found</div>';
+                return;
+            }
+
+            const reportHTML = `
+                <div style="max-height: 400px; overflow-y: auto;">
+                    ${salesData.map(day => `
+                        <div class="trend-item">
+                            <div>
+                                <div class="font-medium">${new Date(day.date).toLocaleDateString()}</div>
+                                <div class="text-sm text-muted">${day.total_transactions} transactions</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-semibold">${formatCurrency(day.total_revenue)}</div>
+                                <div class="text-sm text-muted">
+                                    ${formatCurrency(day.total_revenue / day.total_transactions)} avg
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = reportHTML;
+        }
+
+        function renderProductsReport() {
+            const container = document.getElementById('productsReportContainer');
+
+            if (!productsData || productsData.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">No products data found</div>';
+                return;
+            }
+
+            // Sort by total sold descending
+            const sortedProducts = [...productsData].sort((a, b) => b.total_sold - a.total_sold);
+            const topProducts = sortedProducts.slice(0, 10);
+
+            const reportHTML = `
+                <div style="max-height: 400px; overflow-y: auto;">
+                    ${topProducts.map(product => `
+                        <div class="trend-item">
+                            <div>
+                                <div class="font-medium">${product.name}</div>
+                                <div class="text-sm text-muted">${product.category_name || 'No category'}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-semibold">${product.total_sold} sold</div>
+                                <div class="text-sm text-muted">${formatCurrency(product.total_revenue)}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = reportHTML;
+        }
+
+        function renderSalesTrends() {
+            const container = document.getElementById('salesTrendsContainer');
+
+            if (!salesData || salesData.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">No sales data available</div>';
+                return;
+            }
+
+            // Calculate trends
+            const trendsHTML = salesData.map((day, index) => {
+                let trendClass = '';
+                let trendIcon = '';
+                let trendText = '';
+
+                if (index > 0) {
+                    const prevDay = salesData[index - 1];
+                    const change = day.total_revenue - prevDay.total_revenue;
+                    const changePercent = ((change / prevDay.total_revenue) * 100).toFixed(1);
+
+                    if (change > 0) {
+                        trendClass = 'trend-positive';
+                        trendIcon = '↗️';
+                        trendText = `+${changePercent}%`;
+                    } else if (change < 0) {
+                        trendClass = 'trend-negative';
+                        trendIcon = '↘️';
+                        trendText = `${changePercent}%`;
+                    } else {
+                        trendIcon = '➡️';
+                        trendText = '0%';
+                    }
+                }
+
+                return `
+                    <div class="trend-item">
+                        <div>
+                            <div class="font-medium">${new Date(day.date).toLocaleDateString()}</div>
+                            <div class="text-sm text-muted">${day.total_transactions} transactions</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold">${formatCurrency(day.total_revenue)}</div>
+                            ${trendText ? `<div class="text-sm ${trendClass}">${trendIcon} ${trendText}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = trendsHTML;
+        }
+
+        function renderProductRanking() {
+            const container = document.getElementById('productRankingContainer');
+
+            if (!productsData || productsData.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">No products data available</div>';
+                return;
+            }
+
+            // Sort by total sold descending
+            const sortedProducts = [...productsData].sort((a, b) => b.total_sold - a.total_sold);
+
+            const rankingHTML = sortedProducts.map((product, index) => `
+                <div class="ranking-item">
+                    <div class="flex items-center gap-3">
+                        <div class="ranking-badge">#${index + 1}</div>
+                        <div>
+                            <div class="font-medium">${product.name}</div>
+                            <div class="text-sm text-muted">${product.category_name || 'No category'}</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-semibold">${product.total_sold} sold</div>
+                        <div class="text-sm text-muted">${formatCurrency(product.total_revenue)} revenue</div>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = rankingHTML;
+        }
+
+        function renderInventoryAnalysis() {
+            if (!productsData || productsData.length === 0) return;
+
+            const inStock = productsData.filter(p => p.stock > 10).length;
+            const lowStock = productsData.filter(p => p.stock > 0 && p.stock <= 10).length;
+            const outOfStock = productsData.filter(p => p.stock === 0).length;
+
+            document.getElementById('inStockCount').textContent = inStock;
+            document.getElementById('lowStockCount').textContent = lowStock;
+            document.getElementById('outOfStockCount').textContent = outOfStock;
+
+            // Render inventory details
+            const container = document.getElementById('inventoryDetailsContainer');
+            const inventoryHTML = productsData.map(product => {
+                let statusClass = 'in-stock';
+                let statusText = 'In Stock';
+
+                if (product.stock === 0) {
+                    statusClass = 'out-of-stock';
+                    statusText = 'Out of Stock';
+                } else if (product.stock <= 10) {
+                    statusClass = 'low-stock';
+                    statusText = 'Low Stock';
+                }
+
+                return `
+                    <div class="inventory-item">
+                        <div>
+                            <div class="font-medium">${product.name}</div>
+                            <div class="text-sm text-muted">${product.category_name || 'No category'}</div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="font-semibold">${product.stock} units</div>
+                            <div class="stock-status ${statusClass}">${statusText}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = inventoryHTML;
+        }
+
+        function updateSummaryCards() {
+            if (!salesData || !productsData) return;
+
+            // Calculate totals
+            const totalRevenue = salesData.reduce((sum, day) => sum + day.total_revenue, 0);
+            const totalTransactions = salesData.reduce((sum, day) => sum + day.total_transactions, 0);
+            const avgTransaction = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+
+            // Find top selling product
+            const topProduct = productsData.reduce((top, product) => 
+                product.total_sold > (top?.total_sold || 0) ? product : top, null);
+
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('totalTransactions').textContent = totalTransactions;
+            document.getElementById('avgTransactionValue').textContent = formatCurrency(avgTransaction);
+            document.getElementById('topSellingProduct').textContent = topProduct?.name || '-';
+        }
+
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+
+            // Remove active class from all buttons
+            document.querySelectorAll('[id$="Tab"]').forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + 'Analysis').style.display = 'block';
+            document.getElementById(tabName + 'Tab').classList.remove('btn-secondary');
+            document.getElementById(tabName + 'Tab').classList.add('btn-primary');
+
+            currentTab = tabName;
+        }
+
+        // Export functions
+        function exportReport(type, format) {
+            if (format === 'csv') {
+                api.exportCSV(type);
+            } else if (format === 'xlsx') {
+                api.exportXLSX(type);
+            }
+            showAlert(`${type.charAt(0).toUpperCase() + type.slice(1)} report exported as ${format.toUpperCase()}`, 'success');
+        }
+
+        // Utility functions
+        function refreshReports() {
+            loadAllReports();
+            showAlert('Reports refreshed', 'success');
+        }
+
+        function clearFilters() {
+            // Reset to last 30 days
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+
+            loadSalesReport();
+        }
+
+        // Initialize page
+        initializePage();
+
+        // Set default active tab
+        showTab('sales');
+    </script>
+</body>
+</html>

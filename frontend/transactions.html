@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transactions - POS System</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="nav-brand">POS System</div>
+        <nav class="nav">
+            <a href="/dashboard" class="nav-item">📊 Dashboard</a>
+            <a href="/products" class="nav-item">📦 Products</a>
+            <a href="/transactions" class="nav-item active">💳 Transactions</a>
+            <a href="/reports" class="nav-item">📈 Reports</a>
+            <a href="#" class="nav-item" onclick="auth.logout()">🚪 Logout</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>Point of Sale</h1>
+            <div class="flex items-center gap-4">
+                <button class="btn btn-secondary" onclick="clearCart()">🗑️ Clear Cart</button>
+                <button class="btn btn-primary" onclick="showSalesHistory()">📋 Sales History</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6">
+            <!-- Product Selection -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Products</h3>
+                    <div class="form-group mb-0">
+                        <input type="text" id="productSearch" class="form-input" placeholder="Search products..." style="width: 250px;">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <select id="categoryFilter" class="form-select">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+
+                <div id="productsGrid" class="grid grid-cols-1 gap-2" style="max-height: 500px; overflow-y: auto;">
+                    <div class="text-center">Loading products...</div>
+                </div>
+            </div>
+
+            <!-- Shopping Cart -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Shopping Cart</h3>
+                    <div class="text-lg font-semibold">Items: <span id="cartItemCount">0</span></div>
+                </div>
+
+                <div id="cartItems" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center text-muted">Cart is empty</div>
+                </div>
+
+                <div class="mt-4 pt-4" style="border-top: 1px solid var(--color-border);">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium">Subtotal:</span>
+                        <span id="cartSubtotal" class="font-semibold">$0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium">Tax (10%):</span>
+                        <span id="cartTax" class="font-semibold">$0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-4" style="border-top: 1px solid var(--color-border); padding-top: 0.5rem;">
+                        <span class="font-bold text-lg">Total:</span>
+                        <span id="cartTotal" class="font-bold text-lg text-accent">$0.00</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="paymentMethod" class="form-label">Payment Method</label>
+                        <select id="paymentMethod" class="form-select">
+                            <option value="cash">Cash</option>
+                            <option value="card">Credit/Debit Card</option>
+                            <option value="digital">Digital Wallet</option>
+                        </select>
+                    </div>
+
+                    <button id="checkoutBtn" class="btn btn-success btn-lg" style="width: 100%;" onclick="processCheckout()" disabled>
+                        💳 Process Payment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales History Modal -->
+    <div id="salesModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>Sales History</h3>
+                <button class="btn btn-secondary btn-sm" onclick="hideSalesModal()">×</button>
+            </div>
+            <div id="salesHistoryContent">
+                <div class="text-center">Loading sales...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Modal -->
+    <div id="receiptModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Receipt</h3>
+                <button class="btn btn-secondary btn-sm" onclick="hideReceiptModal()">×</button>
+            </div>
+            <div id="receiptContent"></div>
+            <div class="flex gap-2 justify-end mt-4">
+                <button class="btn btn-secondary" onclick="hideReceiptModal()">Close</button>
+                <button class="btn btn-primary" onclick="printReceipt()">🖨️ Print</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .product-item {
+            padding: 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .product-item:hover {
+            background: var(--slate-1);
+            border-color: var(--color-accent);
+        }
+
+        .product-item.out-of-stock {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quantity-btn {
+            width: 30px;
+            height: 30px;
+            border: 1px solid var(--color-border);
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .quantity-btn:hover {
+            background: var(--slate-1);
+        }
+
+        .receipt {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px dashed #ccc;
+        }
+
+        .receipt-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        .receipt-total {
+            border-top: 1px dashed #ccc;
+            padding-top: 0.5rem;
+            margin-top: 0.5rem;
+            font-weight: bold;
+        }
+    </style>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/api.js"></script>
+    <script>
+        // Check authentication
+        if (!auth.requireAuth()) {
+            // Will redirect to login if not authenticated
+        }
+
+        let products = [];
+        let categories = [];
+        let cart = [];
+        let filteredProducts = [];
+
+        // Load initial data
+        async function loadData() {
+            try {
+                [products, categories] = await Promise.all([
+                    api.getProducts(),
+                    api.getCategories()
+                ]);
+                
+                filteredProducts = [...products];
+                renderProducts();
+                populateCategoryFilter();
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                showAlert('Failed to load products', 'error');
+            }
+        }
+
+        function renderProducts() {
+            const container = document.getElementById('productsGrid');
+            
+            if (filteredProducts.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">No products found</div>';
+                return;
+            }
+
+            const productsHTML = filteredProducts.map(product => {
+                const isOutOfStock = product.stock === 0;
+                const stockClass = isOutOfStock ? 'out-of-stock' : '';
+                const stockText = isOutOfStock ? 'Out of Stock' : `${product.stock} in stock`;
+                
+                return `
+                    <div class="product-item ${stockClass}" onclick="${isOutOfStock ? '' : `addToCart(${product.id})`}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-medium">${product.name}</div>
+                                <div class="text-sm text-muted">${product.category_name || 'No category'}</div>
+                                <div class="text-sm ${isOutOfStock ? 'text-error' : 'text-muted'}">${stockText}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-semibold">${formatCurrency(product.price)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = productsHTML;
+        }
+
+        function populateCategoryFilter() {
+            const categoryFilter = document.getElementById('categoryFilter');
+            
+            const categoryOptions = categories.map(cat => 
+                `<option value="${cat.id}">${cat.name}</option>`
+            ).join('');
+            
+            categoryFilter.innerHTML = '<option value="">All Categories</option>' + categoryOptions;
+        }
+
+        // Filter functions
+        function filterProducts() {
+            const searchTerm = document.getElementById('productSearch').value.toLowerCase();
+            const categoryId = document.getElementById('categoryFilter').value;
+
+            filteredProducts = products.filter(product => {
+                const matchesSearch = product.name.toLowerCase().includes(searchTerm) ||
+                                    (product.description && product.description.toLowerCase().includes(searchTerm));
+                
+                const matchesCategory = !categoryId || product.category_id == categoryId;
+
+                return matchesSearch && matchesCategory;
+            });
+
+            renderProducts();
+        }
+
+        // Event listeners for filters
+        document.getElementById('productSearch').addEventListener('input', debounce(filterProducts, 300));
+        document.getElementById('categoryFilter').addEventListener('change', filterProducts);
+
+        // Cart functions
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product || product.stock === 0) return;
+
+            const existingItem = cart.find(item => item.product_id === productId);
+            
+            if (existingItem) {
+                if (existingItem.quantity < product.stock) {
+                    existingItem.quantity++;
+                } else {
+                    showAlert('Not enough stock available', 'warning');
+                    return;
+                }
+            } else {
+                cart.push({
+                    product_id: productId,
+                    name: product.name,
+                    price: product.price,
+                    quantity: 1,
+                    max_stock: product.stock
+                });
+            }
+
+            renderCart();
+            updateCartTotals();
+        }
+
+        function removeFromCart(productId) {
+            cart = cart.filter(item => item.product_id !== productId);
+            renderCart();
+            updateCartTotals();
+        }
+
+        function updateQuantity(productId, change) {
+            const item = cart.find(item => item.product_id === productId);
+            if (!item) return;
+
+            const newQuantity = item.quantity + change;
+            
+            if (newQuantity <= 0) {
+                removeFromCart(productId);
+            } else if (newQuantity <= item.max_stock) {
+                item.quantity = newQuantity;
+                renderCart();
+                updateCartTotals();
+            } else {
+                showAlert('Not enough stock available', 'warning');
+            }
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            
+            if (cart.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">Cart is empty</div>';
+                document.getElementById('checkoutBtn').disabled = true;
+                return;
+            }
+
+            const cartHTML = cart.map(item => `
+                <div class="cart-item">
+                    <div>
+                        <div class="font-medium">${item.name}</div>
+                        <div class="text-sm text-muted">${formatCurrency(item.price)} each</div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="quantity-controls">
+                            <button class="quantity-btn" onclick="updateQuantity(${item.product_id}, -1)">-</button>
+                            <span class="font-medium">${item.quantity}</span>
+                            <button class="quantity-btn" onclick="updateQuantity(${item.product_id}, 1)">+</button>
+                        </div>
+                        <div class="font-semibold">${formatCurrency(item.price * item.quantity)}</div>
+                        <button class="btn btn-danger btn-sm" onclick="removeFromCart(${item.product_id})">×</button>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = cartHTML;
+            document.getElementById('checkoutBtn').disabled = false;
+        }
+
+        function updateCartTotals() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const tax = subtotal * 0.1; // 10% tax
+            const total = subtotal + tax;
+
+            document.getElementById('cartItemCount').textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cartSubtotal').textContent = formatCurrency(subtotal);
+            document.getElementById('cartTax').textContent = formatCurrency(tax);
+            document.getElementById('cartTotal').textContent = formatCurrency(total);
+        }
+
+        function clearCart() {
+            if (cart.length === 0) return;
+            
+            if (confirm('Are you sure you want to clear the cart?')) {
+                cart = [];
+                renderCart();
+                updateCartTotals();
+            }
+        }
+
+        // Checkout process
+        async function processCheckout() {
+            if (cart.length === 0) return;
+
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const checkoutBtn = document.getElementById('checkoutBtn');
+            
+            // Show loading state
+            checkoutBtn.disabled = true;
+            checkoutBtn.innerHTML = '<div class="spinner"></div> Processing...';
+
+            try {
+                const saleData = {
+                    items: cart.map(item => ({
+                        product_id: item.product_id,
+                        quantity: item.quantity
+                    })),
+                    payment_method: paymentMethod
+                };
+
+                const result = await api.createSale(saleData);
+                
+                showAlert('Sale completed successfully!', 'success');
+                showReceipt(result, paymentMethod);
+                
+                // Clear cart and reload products (to update stock)
+                cart = [];
+                renderCart();
+                updateCartTotals();
+                loadData();
+
+            } catch (error) {
+                console.error('Checkout failed:', error);
+                showAlert('Checkout failed: ' + error.message, 'error');
+            } finally {
+                // Reset button state
+                checkoutBtn.disabled = false;
+                checkoutBtn.innerHTML = '💳 Process Payment';
+            }
+        }
+
+        function showReceipt(sale, paymentMethod) {
+            const modal = document.getElementById('receiptModal');
+            const content = document.getElementById('receiptContent');
+            
+            const receiptHTML = `
+                <div class="receipt">
+                    <div class="receipt-header">
+                        <h4>POS SYSTEM</h4>
+                        <p>Receipt #${sale.id}</p>
+                        <p>${new Date().toLocaleString()}</p>
+                    </div>
+                    
+                    ${sale.items.map(item => `
+                        <div class="receipt-item">
+                            <span>${cart.find(c => c.product_id === item.product_id)?.name || 'Product'}</span>
+                        </div>
+                        <div class="receipt-item">
+                            <span>${item.quantity} x ${formatCurrency(item.unit_price)}</span>
+                            <span>${formatCurrency(item.total_price)}</span>
+                        </div>
+                    `).join('')}
+                    
+                    <div class="receipt-total">
+                        <div class="receipt-item">
+                            <span>Subtotal:</span>
+                            <span>${formatCurrency(sale.total_amount / 1.1)}</span>
+                        </div>
+                        <div class="receipt-item">
+                            <span>Tax (10%):</span>
+                            <span>${formatCurrency(sale.total_amount - (sale.total_amount / 1.1))}</span>
+                        </div>
+                        <div class="receipt-item">
+                            <span>TOTAL:</span>
+                            <span>${formatCurrency(sale.total_amount)}</span>
+                        </div>
+                        <div class="receipt-item">
+                            <span>Payment:</span>
+                            <span>${paymentMethod.toUpperCase()}</span>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 1rem;">
+                        <p>Thank you for your business!</p>
+                    </div>
+                </div>
+            `;
+            
+            content.innerHTML = receiptHTML;
+            modal.style.display = 'flex';
+        }
+
+        function hideReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'none';
+        }
+
+        function printReceipt() {
+            const receiptContent = document.getElementById('receiptContent').innerHTML;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Receipt</title>
+                        <style>
+                            body { font-family: 'Courier New', monospace; font-size: 12px; }
+                            .receipt { max-width: 300px; margin: 0 auto; }
+                        </style>
+                    </head>
+                    <body>${receiptContent}</body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // Sales history
+        async function showSalesHistory() {
+            const modal = document.getElementById('salesModal');
+            const content = document.getElementById('salesHistoryContent');
+            
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="text-center">Loading sales...</div>';
+
+            try {
+                const sales = await api.getSales();
+                
+                if (sales.length === 0) {
+                    content.innerHTML = '<div class="text-center text-muted">No sales found</div>';
+                    return;
+                }
+
+                const salesHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Sale ID</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Payment</th>
+                                <th>User</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sales.map(sale => `
+                                <tr>
+                                    <td>#${sale.id}</td>
+                                    <td>${formatDate(sale.created_at)}</td>
+                                    <td>${formatCurrency(sale.total_amount)}</td>
+                                    <td>${sale.payment_method}</td>
+                                    <td>${sale.user_name || 'Unknown'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                
+                content.innerHTML = salesHTML;
+            } catch (error) {
+                console.error('Failed to load sales:', error);
+                content.innerHTML = '<div class="text-center text-error">Failed to load sales</div>';
+            }
+        }
+
+        function hideSalesModal() {
+            document.getElementById('salesModal').style.display = 'none';
+        }
+
+        // Close modals when clicking outside
+        document.getElementById('salesModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                hideSalesModal();
+            }
+        });
+
+        document.getElementById('receiptModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                hideReceiptModal();
+            }
+        });
+
+        // Load data on page load
+        loadData();
+    </script>
+</body>
+</html>

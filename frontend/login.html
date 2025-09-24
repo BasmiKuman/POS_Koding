@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS System - Login</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1 class="login-title">POS System</h1>
+                <p class="login-subtitle">Sign in to your account</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email" class="form-label">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        class="form-input" 
+                        placeholder="Enter your email"
+                        value="admin@pos.com"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input" 
+                        placeholder="Enter your password"
+                        value="admin123"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+                    <span id="loginText">Sign In</span>
+                    <div id="loginSpinner" class="spinner hidden"></div>
+                </button>
+            </form>
+
+            <div id="errorMessage" class="alert alert-error hidden" style="margin-top: 1rem;"></div>
+
+            <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--color-border); text-align: center;">
+                <p class="text-sm text-muted">
+                    Demo Credentials:<br>
+                    <strong>Email:</strong> admin@pos.com<br>
+                    <strong>Password:</strong> admin123
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+    <script>
+        // Redirect if already logged in
+        if (auth.isAuthenticated()) {
+            window.location.href = '/dashboard';
+        }
+
+        const loginForm = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('errorMessage');
+        const loginText = document.getElementById('loginText');
+        const loginSpinner = document.getElementById('loginSpinner');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            // Show loading state
+            loginText.textContent = 'Signing in...';
+            loginSpinner.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+
+            try {
+                const result = await auth.login(email, password);
+                
+                if (result.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    errorMessage.textContent = result.message || 'Login failed';
+                    errorMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Network error. Please try again.';
+                errorMessage.classList.remove('hidden');
+            } finally {
+                // Reset loading state
+                loginText.textContent = 'Sign In';
+                loginSpinner.classList.add('hidden');
+            }
+        });
+
+        // Auto-focus email field
+        document.getElementById('email').focus();
+    </script>
+</body>
+</html>
